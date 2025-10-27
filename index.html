@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>json.komee.org — JSONビューワ & 整形チェッカー</title>
+  <meta name="description" content="JSON整形・最小化・検証・ツリー表示・差分比較・YAML変換。すべてブラウザ内で完結する無料ツール。" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230b0f14'/><text x='50' y='58' font-size='44' text-anchor='middle' fill='%234cc2ff' font-family='Arial, Helvetica, sans-serif'>{}</text></svg>">
+  <style>
+    :root{--bg:#0b0f14;--panel:#121821;--muted:#8b98a5;--text:#e6edf3;--acc:#4cc2ff;--bd:#111722;--ok:#31c48d;--err:#ff6b6b}
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;font-family:-apple-system,system-ui,Segoe UI,Roboto,Helvetica,Arial,'Noto Sans JP','Hiragino Kaku Gothic ProN','Yu Gothic UI',Meiryo,sans-serif;background:var(--bg);color:var(--text)}
+    header{position:sticky;top:0;z-index:20;background:linear-gradient(180deg,rgba(18,24,33,.95),rgba(18,24,33,.7));backdrop-filter:saturate(160%) blur(6px);border-bottom:1px solid var(--bd)}
+    .wrap{max-width:1200px;margin:0 auto;padding:16px}
+    .title{font-size:22px;font-weight:800}
+    .muted{color:var(--muted);font-size:13px}
+    .card{background:var(--panel);border:1px solid var(--bd);border-radius:16px;padding:14px;box-shadow:0 6px 22px rgba(0,0,0,.28)}
+    .grid{display:grid;gap:16px}
+    @media(min-width:980px){.grid-2{grid-template-columns:1fr 1fr}}
+    textarea{width:100%;min-height:260px;background:#0e141d;border:1px solid #1a2432;color:var(--text);border-radius:10px;padding:10px;font-size:13px;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace;resize:vertical}
+    pre{white-space:pre-wrap;word-wrap:break-word}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+    button{background:#0e141d;border:1px solid #1a2432;color:var(--text);border-radius:999px;padding:8px 12px;font-size:13px;cursor:pointer}
+    button:hover{border-color:#2a3b52}
+    .small{font-size:12px}
+    .ok{color:var(--ok)}
+    .err{color:var(--err)}
+    details{border:1px solid #1a2432;border-radius:10px;padding:8px;margin:6px 0;background:#0e141d}
+    summary{cursor:pointer}
+    .kv{margin-left:10px}
+    .ad{background:#0e141d;border:1px dashed #1a2432;border-radius:12px;padding:10px;display:flex;align-items:center;justify-content:center;min-height:90px}
+  </style>
+  <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-6238004847920381" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header>
+    <div class="wrap" style="display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap;">
+      <div>
+        <div class="title">json.komee.org</div>
+        <div class="muted">JSON 整形・検証・ツリー表示・差分・YAML 変換（ブラウザ内で完結）</div>
+      </div>
+      <nav class="muted" style="display:flex;gap:12px;flex-wrap:wrap">
+        <a href="#viewer">Viewer</a>
+        <a href="#diff">Diff</a>
+        <a href="#convert">Convert</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <!-- Viewer / Formatter -->
+    <section class="card" id="viewer">
+      <h2>JSON ビューワ / 整形</h2>
+      <div class="grid grid-2">
+        <div>
+          <label class="small">入力（JSON または YAML*）</label>
+          <textarea id="inputBox" placeholder='例: {"hello":"world","items":[1,2,3]}'></textarea>
+          <div class="toolbar">
+            <button onclick="pretty()">整形</button>
+            <button onclick="minify()">最小化</button>
+            <button onclick="validate()">検証</button>
+            <button onclick="toTree()">ツリー表示</button>
+            <button onclick="copyText('inputBox')">コピー</button>
+            <button onclick="clearBox('inputBox')">クリア</button>
+          </div>
+          <div id="status" class="small muted">準備完了</div>
+        </div>
+        <div>
+          <label class="small">出力</label>
+          <textarea id="outputBox" placeholder="ここに結果が表示されます"></textarea>
+          <div class="toolbar">
+            <button onclick="copyText('outputBox')">コピー</button>
+            <button onclick="clearBox('outputBox')">クリア</button>
+          </div>
+          <div class="ad small">
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-6238004847920381"
+     data-ad-slot="8706606123"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+            <span class="muted">広告</span>
+          </div>
+        </div>
+      </div>
+      <div id="tree" style="margin-top:10px"></div>
+      <div class="small muted" style="margin-top:6px">* YAML 入力はベータ対応（配列 / オブジェクト / 文字列 / 数値 / true / false / null のみ）</div>
+    </section>
+
+    <!-- Diff -->
+    <section class="card" id="diff">
+      <h2>JSON 差分（構造比較）</h2>
+      <div class="grid grid-2">
+        <div>
+          <label class="small">JSON A</label>
+          <textarea id="diffA" placeholder='{"foo":1,"bar":[1,2]}'></textarea>
+        </div>
+        <div>
+          <label class="small">JSON B</label>
+          <textarea id="diffB" placeholder='{"foo":2,"bar":[1,3],"baz":true}'></textarea>
+        </div>
+      </div>
+      <div class="toolbar">
+        <button onclick="runDiff()">差分を計算</button>
+        <button onclick="copyDiff()">結果をコピー</button>
+        <button onclick="document.getElementById('diffOut').textContent=''">クリア</button>
+      </div>
+      <pre id="diffOut" class="small" style="background:#0e141d;border:1px solid #1a2432;border-radius:10px;padding:10px;min-height:120px"></pre>
+    </section>
+
+    <!-- Convert -->
+    <section class="card" id="convert">
+      <h2>フォーマット変換</h2>
+      <div class="grid grid-2">
+        <div>
+          <label class="small">JSON → YAML</label>
+          <textarea id="json2yamlIn" placeholder='{"name":"komee","list":[1,2,3],"on":true}'></textarea>
+          <div class="toolbar">
+            <button onclick="jsonToYaml()">変換</button>
+            <button onclick="copyText('json2yamlOut')">出力コピー</button>
+          </div>
+          <textarea id="json2yamlOut" placeholder="YAML出力" readonly></textarea>
+        </div>
+        <div>
+          <label class="small">YAML → JSON（ベータ）</label>
+          <textarea id="yaml2jsonIn" placeholder='name: komee\nlist:\n  - 1\n  - 2\n  - 3\non: true'></textarea>
+          <div class="toolbar">
+            <button onclick="yamlToJson()">変換</button>
+            <button onclick="copyText('yaml2jsonOut')">出力コピー</button>
+          </div>
+          <textarea id="yaml2jsonOut" placeholder="JSON出力" readonly></textarea>
+        </div>
+      </div>
+      <div class="small muted">※ YAMLパーサは簡易実装のため、高度な機能（アンカー/タグ/複行文字列など）には非対応です。</div>
+      <div class="ad small" style="margin-top:8px">
+<ins class="adsbygoogle"
+     style="display:block"
+     data-ad-client="ca-pub-6238004847920381"
+     data-ad-slot="1730134230"
+     data-ad-format="auto"
+     data-full-width-responsive="true"></ins>
+<script>
+     (adsbygoogle = window.adsbygoogle || []).push({});
+</script>
+        <span class="muted">広告</span>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap">
+      <div>© <span id="y"></span> komee.org</div>
+      <div class="muted small"><a href="#" onclick="toggle('policy');return false;">プライバシーポリシー</a> ・ <a href="#" onclick="toggle('disclaimer');return false;">免責事項</a></div>
+    </div>
+  </footer>
+
+  <!-- 簡易ポリシー -->
+  <div id="policy" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6)">
+    <div class="card" style="max-width:760px;margin:6vh auto">
+      <h2>プライバシーポリシー</h2>
+      <div class="muted" style="line-height:1.8">
+        当サイトでは、第三者配信の広告サービス（Google AdSense）を利用する場合があります。Cookie を使用し、ユーザーの興味に応じた広告を表示することがあります。Cookie はブラウザ設定から無効化できます。アクセス解析等により、閲覧情報が外部に送信される場合があります。取得した情報は広告配信とサイト改善の目的のみに利用し、法令に基づき適切に管理します。
+      </div>
+      <div style="margin-top:10px;text-align:right"><button onclick="toggle('policy')">閉じる</button></div>
+    </div>
+  </div>
+  <div id="disclaimer" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.6)">
+    <div class="card" style="max-width:760px;margin:6vh auto">
+      <h2>免責事項</h2>
+      <div class="muted" style="line-height:1.8">
+        本ツールは情報提供および開発作業の補助を目的としたものであり、結果の正確性を保証しません。本ツールの利用により生じたいかなる損害についても、当サイトは責任を負いません。
+      </div>
+      <div style="margin-top:10px;text-align:right"><button onclick="toggle('disclaimer')">閉じる</button></div>
+    </div>
+  </div>
+
+  <script>
+    // ===== Utilities =====
+    const $ = id => document.getElementById(id);
+    const setStatus = (msg, ok=true) => { const s=$('status'); s.textContent=msg; s.className = 'small ' + (ok? 'ok':'err'); };
+    const copyText = id => { const el=$(id); el.select(); document.execCommand('copy'); };
+    const clearBox = id => { $(id).value=''; };
+    const toggle = id => { const el=$(id); el.style.display=(el.style.display==='none'||!el.style.display)?'block':'none'; };
+    document.getElementById('y').textContent = new Date().getFullYear();
+
+    // ===== JSON Parse / Stringify Safe =====
+    function parseInput(text){
+      // Try JSON first
+      try { return {data: JSON.parse(text), type:'json'}; } catch(_){ }
+      // Then try YAML (subset)
+      try { return {data: yamlParse(text), type:'yaml'}; } catch(e){ throw e; }
+    }
+    function pretty(){
+      const v = $('inputBox').value; try{ const obj = parseInput(v).data; $('outputBox').value = JSON.stringify(obj, null, 2); setStatus('整形しました', true); toTree(obj); }catch(e){ setStatus('エラー: '+e.message, false); }
+    }
+    function minify(){ const v=$('inputBox').value; try{ const obj=parseInput(v).data; $('outputBox').value = JSON.stringify(obj); setStatus('最小化しました', true);}catch(e){ setStatus('エラー: '+e.message, false);} }
+    function validate(){ const v=$('inputBox').value; try{ parseInput(v); setStatus('OK: 有効な JSON/YAML です', true);}catch(e){ setStatus('無効: '+e.message, false);} }
+
+    // ===== Tree Viewer =====
+    function toTree(obj){ const root=$('tree'); root.innerHTML=''; root.appendChild(renderNode(obj, '(root)')); }
+    function renderNode(val, key){
+      const wrap = document.createElement('div');
+      if (val!==null && typeof val==='object'){
+        const d = document.createElement('details'); d.open=false;
+        const s = document.createElement('summary'); s.textContent = `${key} ${Array.isArray(val)?'[Array]':'{Object}'}`; d.appendChild(s);
+        const inner = document.createElement('div'); inner.className='kv';
+        if (Array.isArray(val)) {
+          val.forEach((v,i)=> inner.appendChild(renderNode(v, `[${i}]`)) );
+        } else {
+          Object.keys(val).forEach(k=> inner.appendChild(renderNode(val[k], k)) );
+        }
+        d.appendChild(inner); wrap.appendChild(d);
+      } else {
+        const p = document.createElement('div'); p.innerHTML = `<span class="muted">${key}:</span> <code>${escapeHtml(String(val))}</code>`; wrap.appendChild(p);
+      }
+      return wrap;
+    }
+    function escapeHtml(s){ return s.replace(/[&<>\"]/g, c=>({"&":"&amp;","<":"&lt;", ">":"&gt;","\"":"&quot;"}[c])); }
+
+    // ===== Diff (structural) =====
+    function runDiff(){
+      let A, B; try{ A = JSON.parse($('diffA').value||'null'); }catch(e){ $('diffOut').textContent = 'A: JSONエラー - '+e.message; return; }
+      try{ B = JSON.parse($('diffB').value||'null'); }catch(e){ $('diffOut').textContent = 'B: JSONエラー - '+e.message; return; }
+      const lines = []; diffWalk(A, B, '', lines); $('diffOut').textContent = lines.join('\n') || '差分なし';
+    }
+    function pathJoin(base, key){ return base ? (key.startsWith('[')? base+key : base+'.'+key) : key; }
+    function diffWalk(a,b,base,lines){
+      if (a===b) return;
+      const ta = typeOf(a), tb = typeOf(b);
+      if (ta!==tb){ lines.push(`~ 型変更: ${base} (${ta} → ${tb})`); return; }
+      if (ta==='object'){
+        const keys = new Set([...Object.keys(a||{}), ...Object.keys(b||{})]);
+        for(const k of keys){
+          if (!(k in (a||{}))) { lines.push(`+ 追加: ${pathJoin(base,k)} = ${repr(b[k])}`); continue; }
+          if (!(k in (b||{}))) { lines.push(`- 削除: ${pathJoin(base,k)} = ${repr(a[k])}`); continue; }
+          diffWalk(a[k], b[k], pathJoin(base,k), lines);
+        }
+      } else if (ta==='array'){
+        const len = Math.max(a.length, b.length);
+        for(let i=0;i<len;i++){
+          if (i>=a.length) { lines.push(`+ 追加: ${pathJoin(base,`[${i}]`)} = ${repr(b[i])}`); continue; }
+          if (i>=b.length) { lines.push(`- 削除: ${pathJoin(base,`[${i}]`)} = ${repr(a[i])}`); continue; }
+          diffWalk(a[i], b[i], pathJoin(base,`[${i}]`), lines);
+        }
+      } else {
+        if (a!==b) lines.push(`~ 変更: ${base} ${repr(a)} → ${repr(b)}`);
+      }
+    }
+    function typeOf(v){ if (Array.isArray(v)) return 'array'; if (v===null) return 'null'; return typeof v==='object'? 'object': typeof v; }
+    function repr(v){ try{ return JSON.stringify(v); }catch(_){ return String(v); } }
+    function copyDiff(){ copyText('diffOut'); }
+
+    // ===== JSON <-> YAML (minimal) =====
+    function jsonToYaml(){
+      try {
+        const obj = JSON.parse($('json2yamlIn').value||'null');
+        $('json2yamlOut').value = toYAML(obj);
+      } catch(e){ $('json2yamlOut').value = 'JSONエラー: '+e.message; }
+    }
+    function yamlToJson(){
+      try {
+        const obj = yamlParse($('yaml2jsonIn').value||'');
+        $('yaml2jsonOut').value = JSON.stringify(obj, null, 2);
+      } catch(e){ $('yaml2jsonOut').value = 'YAMLエラー: '+e.message; }
+    }
+
+    // --- YAML Serializer (basic) ---
+    function toYAML(value, indent=''){
+      const next = indent + '  ';
+      if (value === null) return 'null';
+      switch(typeof value){
+        case 'string': return yamlString(value);
+        case 'number': return isFinite(value)? String(value): 'null';
+        case 'boolean': return value? 'true':'false';
+        case 'object':
+          if (Array.isArray(value)){
+            if (value.length===0) return '[]';
+            return value.map(v => `${indent}- ${isPrimitive(v)? toYAML(v,'') : '\n'+toYAML(v,next)}`).join('\n').replace(/\n\n/g,'\n');
+          } else {
+            const keys = Object.keys(value);
+            if (keys.length===0) return '{}';
+            return keys.map(k=>{
+              const v = value[k];
+              if (isPrimitive(v)) return `${indent}${k}: ${toYAML(v,'')}`;
+              return `${indent}${k}:\n${toYAML(v,next)}`;
+            }).join('\n');
+          }
+      }
+    }
+    function isPrimitive(v){ return v===null || ['string','number','boolean'].includes(typeof v); }
+    function yamlString(s){
+      if (s==='' || /[:\-?{}\[\],&*#%!|>'"@`\n\t]/.test(s)){
+        return JSON.stringify(s); // quote as JSON string
+      }
+      return s;
+    }
+
+    // --- YAML Parser (very small subset) ---
+    function yamlParse(src){
+      const lines = src.split(/\r?\n/).filter(l=>!(/^\s*$/.test(l) || /^\s*#/.test(l)));
+      let i=0;
+      function parseBlock(indent){
+        const obj = {};
+        const arr = [];
+        let isArray = false, isObject = false;
+        while(i<lines.length){
+          const line = lines[i];
+          const {ind, content} = splitIndent(line);
+          if (ind < indent) break; // end of this block
+          if (ind > indent) throw new Error(`インデント不整合: 行${i+1}`);
+          // sequence item
+          if (/^-\s+/.test(content)){
+            const itemStr = content.replace(/^-[\s]*/, '');
+            if (!isArray && isObject) throw new Error(`配列とマップが混在: 行${i+1}`);
+            isArray = true;
+            i++;
+            if (/^[^:]+:\s*\S/.test(itemStr) || /:$/.test(itemStr)){
+              // nested object after '-'
+              const tmpLines = [ ' '.repeat(indent+2) + itemStr ];
+              // inject a virtual next line to reuse map parser
+              lines.splice(i,0,...tmpLines);
+            }
+            const val = parseValue(itemStr, indent+2);
+            arr.push(val);
+            continue;
+          }
+          // mapping
+          const m = content.match(/^([^:#]+):\s*(.*)$/);
+          if (!m) throw new Error(`構文エラー: 行${i+1}`);
+          const key = m[1].trim();
+          const rest = m[2];
+          if (!isObject && isArray) throw new Error(`配列とマップが混在: 行${i+1}`);
+          isObject = true;
+          i++;
+          if (rest === '' || rest === undefined){
+            // multiline nested block
+            const val = parseBlock(indent+2);
+            obj[key] = val;
+          } else {
+            obj[key] = scalar(rest);
+          }
+        }
+        if (isArray) return arr;
+        return obj;
+      }
+      function parseValue(str, indent){
+        if (str === '') return parseBlock(indent);
+        if (/^[^:]+:\s*$/.test(str)) return parseBlock(indent); // key: (newline)
+        if (/^[^:]+:\s+/.test(str)){
+          // inline map under sequence item
+          const save = lines.slice(i);
+          lines.splice(i,0, ' '.repeat(indent) + str);
+          const v = parseBlock(indent);
+          lines.splice(i, save.length, ...save);
+          return v;
+        }
+        return scalar(str);
+      }
+      function splitIndent(line){ const m=line.match(/^(\s*)(.*)$/); return {ind: m[1].length, content:m[2]}; }
+      function scalar(tok){
+        const t = tok.trim();
+        if (t === 'null' || t === '~') return null;
+        if (t === 'true') return true; if (t === 'false') return false;
+        if (/^[-+]?[0-9]+(\.[0-9]+)?$/.test(t)) return Number(t);
+        if ((t.startsWith('"') && t.endsWith('"')) || (t.startsWith("'") && t.endsWith("'"))) {
+          try { return JSON.parse(t.replace(/^'/,'"').replace(/'$/,'"')); } catch(_){ return t.slice(1,-1); }
+        }
+        return t; // plain string
+      }
+      const result = parseBlock(0);
+      return result;
+    }
+  </script>
+</body>
+</html>
